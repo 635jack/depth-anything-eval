@@ -1,5 +1,7 @@
 trimesh
 numpy
+shapely
+mapbox-earcut
 matplotlib
 Pillow
 torch
