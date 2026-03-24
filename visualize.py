@@ -64,7 +64,13 @@ def main():
         html_content.append(metrics_html)
     
     html_content.append("<h2>Visualizations</h2>")
-    html_content.append("<table><tr><th>RGB</th><th>GT Depth</th><th>Pred (Aligned)</th><th>Absolute Error (hot)</th></tr>")
+    html_content.append("<table><tr><th>RGB</th><th>GT Depth</th><th>Pred (Aligned)</th><th>Absolute Error (hot)</th><th>Uncertainty (TTA)</th></tr>")
+
+    # Pass 1: Compute global scales and cache data
+    global_vmax_depth = 0.0
+    global_vmax_err = 0.0
+    global_vmax_unc = 0.0
+    cache = []
 
     for pred_path in prediction_files:
         basename = os.path.basename(pred_path)
@@ -72,6 +78,7 @@ def main():
         
         rgb_path = os.path.join(renders_dir, f"{name_no_ext}.png")
         gt_path = os.path.join(renders_dir, f"{name_no_ext}.exr")
+        unc_path = pred_path.replace(".npy", "_unc.npy")
         
         if not os.path.exists(gt_path) or not os.path.exists(rgb_path):
             continue
@@ -104,48 +111,72 @@ def main():
             pred_raw = cv2.resize(pred_raw, (gt_depth.shape[1], gt_depth.shape[0]), interpolation=cv2.INTER_LINEAR)
             
         mask = (gt_depth > 0) & (gt_depth < 2.0)
-        
         if mask.sum() < 100:
             continue
             
         gt_viz, pred_viz, error, s, t = generate_error_map(gt_depth, pred_raw, mask)
         
-        fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+        # Process uncertainty
+        unc_viz = np.zeros_like(gt_depth)
+        if os.path.exists(unc_path):
+            unc_raw = np.load(unc_path)
+            if unc_raw.shape != gt_depth.shape:
+                unc_raw = cv2.resize(unc_raw, (gt_depth.shape[1], gt_depth.shape[0]), interpolation=cv2.INTER_LINEAR)
+            # Scale uncertainty roughly into depth scale
+            unc_viz = unc_raw * abs(s)
+            unc_viz[~mask] = 0
         
-        axes[0].imshow(rgb)
+        # Update globals
+        global_vmax_depth = max(global_vmax_depth, np.percentile(gt_viz[mask], 99))
+        global_vmax_err = max(global_vmax_err, np.percentile(error[mask], 99))
+        if mask.sum() > 0 and os.path.exists(unc_path):
+            global_vmax_unc = max(global_vmax_unc, np.percentile(unc_viz[mask], 99))
+            
+        cache.append({
+            'name': name_no_ext, 'rgb': rgb, 'gt': gt_viz, 'pred': pred_viz,
+            'err': error, 'unc': unc_viz, 's': s, 't': t
+        })
+
+    # Pass 2: Plotting with global scales
+    for item in cache:
+        fig, axes = plt.subplots(1, 5, figsize=(25, 5))
+        
+        axes[0].imshow(item['rgb'])
         axes[0].set_title("RGB")
         axes[0].axis('off')
         
-        vmax_depth = np.percentile(gt_viz[mask], 99) if mask.sum() > 0 else 2.0
-        
-        im1 = axes[1].imshow(gt_viz, cmap='viridis', vmin=0, vmax=vmax_depth)
+        im1 = axes[1].imshow(item['gt'], cmap='viridis', vmin=0, vmax=global_vmax_depth)
         axes[1].set_title("Ground Truth (m)")
         axes[1].axis('off')
         plt.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
         
-        im2 = axes[2].imshow(pred_viz, cmap='viridis', vmin=0, vmax=vmax_depth)
-        axes[2].set_title(f"Pred Aligned\ns={s:.2e}, t={t:.2e}")
+        im2 = axes[2].imshow(item['pred'], cmap='viridis', vmin=0, vmax=global_vmax_depth)
+        axes[2].set_title(f"Pred Aligned\ns={item['s']:.2e}, t={item['t']:.2e}")
         axes[2].axis('off')
         plt.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
         
-        vmax_err = np.percentile(error[mask], 95) if mask.sum() > 0 else 0.5
-        im3 = axes[3].imshow(error, cmap='hot', vmin=0, vmax=vmax_err)
+        im3 = axes[3].imshow(item['err'], cmap='hot', vmin=0, vmax=global_vmax_err)
         axes[3].set_title("Absolute Error (m)")
         axes[3].axis('off')
         plt.colorbar(im3, ax=axes[3], fraction=0.046, pad=0.04)
         
+        im4 = axes[4].imshow(item['unc'], cmap='magma', vmin=0, vmax=global_vmax_unc)
+        axes[4].set_title("Uncertainty (TTA)")
+        axes[4].axis('off')
+        plt.colorbar(im4, ax=axes[4], fraction=0.046, pad=0.04)
+        
         plt.tight_layout()
         
-        out_fig_path = os.path.join(figures_dir, f"{name_no_ext}_viz.png")
+        out_fig_path = os.path.join(figures_dir, f"{item['name']}_viz.png")
         plt.savefig(out_fig_path, dpi=150, bbox_inches='tight')
         plt.close()
         
         html_content.append(f"""
         <tr>
-            <td colspan="4" style="text-align:center;font-weight:bold;background-color:#eee;">{name_no_ext}</td>
+            <td colspan="5" style="text-align:center;font-weight:bold;background-color:#eee;">{item['name']}</td>
         </tr>
         <tr>
-            <td colspan="4"><img src="../figures/{name_no_ext}_viz.png" width="100%"></td>
+            <td colspan="5"><img src="../figures/{item['name']}_viz.png" width="100%"></td>
         </tr>
         """)
         
