@@ -1,0 +1,10 @@
+trimesh
+numpy
+matplotlib
+Pillow
+torch
+torchvision
+transformers
+scipy
+OpenEXR
+Imath
