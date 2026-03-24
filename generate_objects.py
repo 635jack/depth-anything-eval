@@ -76,15 +76,18 @@ def _check_flat_base(mesh: trimesh.Trimesh, name: str) -> bool:
     return ok
 
 
-def _export(mesh: trimesh.Trimesh, name: str):
-    """Exporte en STL et OBJ."""
-    stl_path = os.path.join(OUTPUT_DIR, f"{name}.stl")
-    obj_path = os.path.join(OUTPUT_DIR, f"{name}.obj")
-    mesh.export(stl_path, file_type="stl")
-    mesh.export(obj_path, file_type="obj")
+def _export(mesh: trimesh.Trimesh, name: str, out_dir: str = OUTPUT_DIR):
+    """Exporte en STL, OBJ et GLB."""
+    stl_path = os.path.join(out_dir, f"{name}.stl")
+    obj_path = os.path.join(out_dir, f"{name}.obj")
+    glb_path = os.path.join(out_dir, f"{name}.glb")
+    mesh.export(stl_path)
+    mesh.export(obj_path)
+    mesh.export(glb_path)
     print(f"  [{name}] → {stl_path}")
     print(f"  [{name}] → {obj_path}")
-    return stl_path, obj_path
+    print(f"  [{name}] → {glb_path}")
+    return stl_path, obj_path, glb_path
 
 
 def _validate_and_export(mesh: trimesh.Trimesh, name: str) -> dict:
@@ -99,7 +102,8 @@ def _validate_and_export(mesh: trimesh.Trimesh, name: str) -> dict:
     thickness = _check_thickness(mesh, name)
     overhangs = _check_overhangs(mesh, name)
     flat_base = _check_flat_base(mesh, name)
-    stl, obj = _export(mesh, name)
+    # Export
+    stl, obj, glb = _export(mesh, name)
 
     return {
         "name": name,

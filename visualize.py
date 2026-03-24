@@ -50,6 +50,7 @@ def main():
     
     html_content = [
         "<html><head><title>Depth-Anything-V2 Evaluation</title>",
+        '<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>',
         "<style>body {font-family: Arial, sans-serif; margin: 20px;} ",
         "table {border-collapse: collapse; width: 100%;} th, td {border: 1px solid #ddd; padding: 8px;} th {background-color: #f2f2f2;} ",
         "img {max-width: 100%; height: auto;}</style></head><body>",
@@ -64,7 +65,7 @@ def main():
         html_content.append(metrics_html)
     
     html_content.append("<h2>Visualizations</h2>")
-    html_content.append("<table><tr><th>RGB</th><th>GT Depth</th><th>Pred (Aligned)</th><th>Absolute Error (hot)</th><th>Uncertainty (TTA)</th></tr>")
+    html_content.append("<table><tr><th style='width: 350px;'>Modèle 3D Interactif</th><th>Évaluation Pipeline (RGB | GT | Pred | Erreur | Incertitude)</th></tr>")
 
     # Pass 1: Compute global scales and cache data
     global_vmax_depth = 0.0
@@ -137,48 +138,68 @@ def main():
             'err': error, 'unc': unc_viz, 's': s, 't': t
         })
 
-    # Pass 2: Plotting with global scales
+    # Group cache by object name
+    objects_dict = {}
     for item in cache:
-        fig, axes = plt.subplots(1, 5, figsize=(25, 5))
+        obj_name = item['name'].rsplit("_", 1)[0]
+        if obj_name not in objects_dict:
+            objects_dict[obj_name] = []
+        objects_dict[obj_name].append(item)
+
+    # Pass 2: Plotting with global scales
+    for obj_name, items in objects_dict.items():
+        rowspan = len(items) * 2
         
-        axes[0].imshow(item['rgb'])
-        axes[0].set_title("RGB")
-        axes[0].axis('off')
-        
-        im1 = axes[1].imshow(item['gt'], cmap='viridis', vmin=0, vmax=global_vmax_depth)
-        axes[1].set_title("Ground Truth (m)")
-        axes[1].axis('off')
-        plt.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
-        
-        im2 = axes[2].imshow(item['pred'], cmap='viridis', vmin=0, vmax=global_vmax_depth)
-        axes[2].set_title(f"Pred Aligned\ns={item['s']:.2e}, t={item['t']:.2e}")
-        axes[2].axis('off')
-        plt.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
-        
-        im3 = axes[3].imshow(item['err'], cmap='hot', vmin=0, vmax=global_vmax_err)
-        axes[3].set_title("Absolute Error (m)")
-        axes[3].axis('off')
-        plt.colorbar(im3, ax=axes[3], fraction=0.046, pad=0.04)
-        
-        im4 = axes[4].imshow(item['unc'], cmap='magma', vmin=0, vmax=global_vmax_unc)
-        axes[4].set_title("Uncertainty (TTA)")
-        axes[4].axis('off')
-        plt.colorbar(im4, ax=axes[4], fraction=0.046, pad=0.04)
-        
-        plt.tight_layout()
-        
-        out_fig_path = os.path.join(figures_dir, f"{item['name']}_viz.png")
-        plt.savefig(out_fig_path, dpi=150, bbox_inches='tight')
-        plt.close()
-        
-        html_content.append(f"""
-        <tr>
-            <td colspan="5" style="text-align:center;font-weight:bold;background-color:#eee;">{item['name']}</td>
-        </tr>
-        <tr>
-            <td colspan="5"><img src="../figures/{item['name']}_viz.png" width="100%"></td>
-        </tr>
-        """)
+        html_content.append("<tr>")
+        html_content.append(f'<td rowspan="{rowspan}" style="text-align:center; vertical-align:middle; border-right:2px solid #ddd;">')
+        html_content.append(f"<h3>{obj_name}</h3>")
+        html_content.append(f'<model-viewer src="../meshes/{obj_name}.glb" auto-rotate camera-controls style="width: 100%; height: 350px; background-color: #f9f9f9; border-radius: 8px;"></model-viewer>')
+        html_content.append('<p style="font-size: 0.85em; color: #666; margin-top: 8px;">(Faites glisser pour tourner)</p>')
+        html_content.append('</td>')
+
+        for i, item in enumerate(items):
+            if i > 0:
+                html_content.append("<tr>")
+            
+            fig, axes = plt.subplots(1, 5, figsize=(25, 5))
+            
+            axes[0].imshow(item['rgb'])
+            axes[0].set_title("RGB")
+            axes[0].axis('off')
+            
+            im1 = axes[1].imshow(item['gt'], cmap='viridis', vmin=0, vmax=global_vmax_depth)
+            axes[1].set_title("Ground Truth (m)")
+            axes[1].axis('off')
+            plt.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+            
+            im2 = axes[2].imshow(item['pred'], cmap='viridis', vmin=0, vmax=global_vmax_depth)
+            axes[2].set_title(f"Pred Aligned\ns={item['s']:.2e}, t={item['t']:.2e}")
+            axes[2].axis('off')
+            plt.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
+            
+            im3 = axes[3].imshow(item['err'], cmap='hot', vmin=0, vmax=global_vmax_err)
+            axes[3].set_title("Absolute Error (m)")
+            axes[3].axis('off')
+            plt.colorbar(im3, ax=axes[3], fraction=0.046, pad=0.04)
+            
+            im4 = axes[4].imshow(item['unc'], cmap='magma', vmin=0, vmax=global_vmax_unc)
+            axes[4].set_title("Uncertainty (TTA)")
+            axes[4].axis('off')
+            plt.colorbar(im4, ax=axes[4], fraction=0.046, pad=0.04)
+            
+            plt.tight_layout()
+            
+            out_fig_path = os.path.join(figures_dir, f"{item['name']}_viz.png")
+            plt.savefig(out_fig_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            
+            html_content.append(f"""
+                <td style="text-align:center;font-weight:bold;background-color:#eee;">{item['name']}</td>
+            </tr>
+            <tr>
+                <td><img src="../figures/{item['name']}_viz.png" width="100%"></td>
+            </tr>
+            """)
         
     html_content.append("</table></body></html>")
     
