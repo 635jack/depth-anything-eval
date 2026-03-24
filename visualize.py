@@ -146,14 +146,25 @@ def main():
             objects_dict[obj_name] = []
         objects_dict[obj_name].append(item)
 
+    import base64
+
     # Pass 2: Plotting with global scales
     for obj_name, items in objects_dict.items():
         rowspan = len(items) * 2
         
+        # Load GLB as base64 to bypass local file CORS policy in browsers
+        glb_path = os.path.join("output", "meshes", f"{obj_name}.glb")
+        if os.path.exists(glb_path):
+            with open(glb_path, "rb") as f:
+                b64_data = base64.b64encode(f.read()).decode('utf-8')
+            glb_src = f"data:model/gltf-binary;base64,{b64_data}"
+        else:
+            glb_src = f"../meshes/{obj_name}.glb"
+        
         html_content.append("<tr>")
         html_content.append(f'<td rowspan="{rowspan}" style="text-align:center; vertical-align:middle; border-right:2px solid #ddd;">')
         html_content.append(f"<h3>{obj_name}</h3>")
-        html_content.append(f'<model-viewer src="../meshes/{obj_name}.glb" auto-rotate camera-controls style="width: 100%; height: 350px; background-color: #f9f9f9; border-radius: 8px;"></model-viewer>')
+        html_content.append(f'<model-viewer src="{glb_src}" auto-rotate camera-controls style="width: 100%; height: 350px; background-color: #f9f9f9; border-radius: 8px;"></model-viewer>')
         html_content.append('<p style="font-size: 0.85em; color: #666; margin-top: 8px;">(Faites glisser pour tourner)</p>')
         html_content.append('</td>')
 
