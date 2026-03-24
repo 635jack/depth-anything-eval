@@ -9,7 +9,7 @@ puis exporté en STL (impression) et OBJ (rendu Blender).
 import os
 import numpy as np
 import trimesh
-from trimesh.creation import extrude_polygon
+from trimesh.creation import revolve
 from shapely.geometry import Polygon
 
 
@@ -124,135 +124,41 @@ def _validate_and_export(mesh: trimesh.Trimesh, name: str) -> dict:
 # Objet generators
 # ---------------------------------------------------------------------------
 
-def make_box_simple() -> trimesh.Trimesh:
-    """Cube 8×8×8 cm."""
-    mesh = trimesh.creation.box(extents=[8, 8, 8])
-    # Translate pour que la base soit à Z=0
-    mesh.apply_translation([0, 0, 4])
-    return mesh
-
-
-def make_stepped_box() -> trimesh.Trimesh:
-    """Boîte avec marche (2 niveaux), 10×10×6 cm total.
-    Niveau 1 : 10×10×3 cm (base)
-    Niveau 2 : 5×10×3 cm  (marche supérieure, décalée)
+def generate_ellipsoidal_cup(r_base, r_top, height, bulge=0.0, wall=0.003, segments=64):
     """
-    base = trimesh.creation.box(extents=[10, 10, 3])
-    base.apply_translation([0, 0, 1.5])
-
-    step = trimesh.creation.box(extents=[5, 10, 3])
-    step.apply_translation([2.5, 0, 4.5])
-
-    mesh = trimesh.boolean.union([base, step], engine="blender")
-    if not isinstance(mesh, trimesh.Trimesh):
-        # Fallback : concaténation simple si le moteur booléen échoue
-        mesh = trimesh.util.concatenate([base, step])
-    return mesh
-
-
-def make_stepped_box_fallback() -> trimesh.Trimesh:
-    """Fallback pour stepped_box sans opérations booléennes.
-    Crée la forme directement par extrusion de profil L en coupe latérale.
+    Génère une tasse avec profil ellipsoïdal par révolution.
     """
-    # Profil en coupe (vue de côté, plan XZ) — forme en L inversé
-    # Base: 10cm largeur, 3cm haut
-    # Marche: 5cm largeur (droite), 3cm haut supplémentaire
-    profile = Polygon([
-        (0, 0), (10, 0), (10, 3),
-        (5, 3), (5, 6),
-        (0, 6), (0, 0)
+    t = np.linspace(0, 1, 60)
+    
+    # Profil extérieur
+    r_mid = (r_base + r_top) / 2 + bulge
+    r_profile = (1 - t)**2 * r_base + 2*(1-t)*t * r_mid + t**2 * r_top
+    z_profile = t * height
+    
+    # Profil intérieur (s'arrête à z=wall pour avoir un fond)
+    t_inner = np.linspace(wall/height, 1, 60)
+    r_inner_profile = (1 - t_inner)**2 * r_base + 2*(1-t_inner)*t_inner * r_mid + t_inner**2 * r_top
+    r_inner = r_inner_profile - wall
+    z_inner = t_inner * height
+    
+    vertices_outer = np.column_stack([r_profile, z_profile])
+    vertices_inner = np.column_stack([r_inner[::-1], z_inner[::-1]])
+    
+    bottom_center = [[0, 0]]
+    inner_center = [[0, wall]]
+    
+    profile = np.vstack([
+        bottom_center, 
+        vertices_outer, 
+        vertices_inner, 
+        inner_center,
+        bottom_center
     ])
-    # Extrude le long de Y sur 10 cm
-    mesh = extrude_polygon(profile, height=10)
-    # Repositionner : centrer XY, base à Z=0
-    # L'extrusion met le profil dans le plan XY et extrude en Z par défaut
-    # On doit réorienter : le profil est dans XZ, extrusion en Y
-    # trimesh extrude_polygon extrude le long de Z, donc le profil doit être dans XY
-    # Notre profil est déjà dans XY, mais représente la vue de côté.
-    # Après extrusion, on a le profil dans X-Y extrudé en Z (profondeur).
-    # On doit pivoter pour que Z soit la hauteur.
-
-    # Pivoter -90° autour de X pour que l'extrusion (Z) devienne Y (profondeur)
-    rot = trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])
-    mesh.apply_transform(rot)
-
-    # Recentrer en XY, base à Z=0
-    bounds = mesh.bounds
-    center_xy = (bounds[0, :2] + bounds[1, :2]) / 2
-    z_min = bounds[0, 2]
-    mesh.apply_translation([-center_xy[0], -center_xy[1], -z_min])
-
-    return mesh
-
-
-def make_cylinder_flat() -> trimesh.Trimesh:
-    """Cylindre plat D=8 cm, H=4 cm."""
-    mesh = trimesh.creation.cylinder(radius=4, height=4, sections=64)
-    mesh.apply_translation([0, 0, 2])
-    return mesh
-
-
-def make_l_shape() -> trimesh.Trimesh:
-    """L-shape extrudé, 12×8×4 cm.
-    Profil L dans le plan XY, extrudé en Z (hauteur = 4 cm).
-    """
-    # Profil en L (vue du dessus)
-    # Branche longue : 12 cm en X, 3 cm en Y
-    # Branche courte : 3 cm en X, 8 cm en Y total
-    profile = Polygon([
-        (0, 0), (12, 0), (12, 3),
-        (3, 3), (3, 8), (0, 8), (0, 0)
-    ])
-    mesh = extrude_polygon(profile, height=4)
-    # Centrer XY, base à Z=0
-    bounds = mesh.bounds
-    center_xy = (bounds[0, :2] + bounds[1, :2]) / 2
-    mesh.apply_translation([-center_xy[0], -center_xy[1], 0])
-    return mesh
-
-
-def make_t_shape() -> trimesh.Trimesh:
-    """T-shape extrudé, 10×8×4 cm.
-    Profil T dans le plan XY, extrudé en Z (hauteur = 4 cm).
-    """
-    # Barre horizontale du T : 10 cm en X, 3 cm en Y (en haut)
-    # Barre verticale du T : 3 cm en X, 5 cm en Y (en bas, centrée)
-    profile = Polygon([
-        (0, 5), (10, 5), (10, 8),
-        (0, 8), (0, 5),  # barre haute
-    ])
-    stem = Polygon([
-        (3.5, 0), (6.5, 0), (6.5, 5),
-        (3.5, 5), (3.5, 0)
-    ])
-    # Union des deux polygones
-    t_profile = profile.union(stem)
-    mesh = extrude_polygon(t_profile, height=4)
-    # Centrer XY, base à Z=0
-    bounds = mesh.bounds
-    center_xy = (bounds[0, :2] + bounds[1, :2]) / 2
-    mesh.apply_translation([-center_xy[0], -center_xy[1], 0])
-    return mesh
-
-
-def make_pyramid_stepped() -> trimesh.Trimesh:
-    """Pyramide étagée 3 niveaux.
-    Niveau 1 : 10×10×2 cm
-    Niveau 2 : 7×7×2 cm
-    Niveau 3 : 4×4×2 cm
-    """
-    levels = [
-        (10, 10, 2, 1),   # largeur, profondeur, hauteur, z_offset
-        (7, 7, 2, 3),
-        (4, 4, 2, 5),
-    ]
-    meshes = []
-    for w, d, h, z in levels:
-        box = trimesh.creation.box(extents=[w, d, h])
-        box.apply_translation([0, 0, z])
-        meshes.append(box)
-
-    mesh = trimesh.util.concatenate(meshes)
+    
+    mesh = trimesh.creation.revolve(profile, sections=segments)
+    
+    # Convertir en cm pour avoir des bounds logiques avec le script existant (ex: max_dim ~ 8cm = 8.0)
+    mesh.apply_scale(100.0) 
     return mesh
 
 
@@ -261,12 +167,12 @@ def make_pyramid_stepped() -> trimesh.Trimesh:
 # ---------------------------------------------------------------------------
 
 OBJECT_GENERATORS = {
-    "box_simple": make_box_simple,
-    "stepped_box": make_stepped_box_fallback,  # utilise le fallback sans booléen
-    "cylinder_flat": make_cylinder_flat,
-    "l_shape": make_l_shape,
-    "t_shape": make_t_shape,
-    "pyramid_stepped": make_pyramid_stepped,
+    "cup_cylindre": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.08, 0.00),
+    "cup_tonneau": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.08, +0.015),
+    "cup_pince": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.08, -0.010),
+    "cup_evase": lambda: generate_ellipsoidal_cup(0.03, 0.05, 0.08, +0.010),
+    "cup_inverse": lambda: generate_ellipsoidal_cup(0.05, 0.03, 0.10, -0.005),
+    "cup_bombe": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.05, +0.020),
 }
 
 
