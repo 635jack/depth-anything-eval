@@ -65,12 +65,11 @@ def main():
         html_content.append(metrics_html)
     
     html_content.append("<h2>Visualizations</h2>")
-    html_content.append("<table><tr><th style='width: 350px;'>Modèle 3D Interactif</th><th>Évaluation Pipeline (RGB | GT | Pred | Erreur | Incertitude)</th></tr>")
+    html_content.append("<table><tr><th style='width: 350px;'>Modèle 3D Interactif</th><th>Évaluation Pipeline (RGB | GT | Pred | Erreur)</th></tr>")
 
     # Pass 1: Compute global scales and cache data
     global_vmax_depth = 0.0
     global_vmax_err = 0.0
-    global_vmax_unc = 0.0
     cache = []
 
     for pred_path in prediction_files:
@@ -117,25 +116,13 @@ def main():
             
         gt_viz, pred_viz, error, s, t = generate_error_map(gt_depth, pred_raw, mask)
         
-        # Process uncertainty
-        unc_viz = np.zeros_like(gt_depth)
-        if os.path.exists(unc_path):
-            unc_raw = np.load(unc_path)
-            if unc_raw.shape != gt_depth.shape:
-                unc_raw = cv2.resize(unc_raw, (gt_depth.shape[1], gt_depth.shape[0]), interpolation=cv2.INTER_LINEAR)
-            # Scale uncertainty roughly into depth scale
-            unc_viz = unc_raw * abs(s)
-            unc_viz[~mask] = 0
-        
         # Update globals
         global_vmax_depth = max(global_vmax_depth, np.percentile(gt_viz[mask], 99))
         global_vmax_err = max(global_vmax_err, np.percentile(error[mask], 99))
-        if mask.sum() > 0 and os.path.exists(unc_path):
-            global_vmax_unc = max(global_vmax_unc, np.percentile(unc_viz[mask], 99))
             
         cache.append({
             'name': name_no_ext, 'rgb': rgb, 'gt': gt_viz, 'pred': pred_viz,
-            'err': error, 'unc': unc_viz, 's': s, 't': t
+            'err': error, 's': s, 't': t
         })
 
     # Group cache by object name
@@ -172,7 +159,7 @@ def main():
             if i > 0:
                 html_content.append("<tr>")
             
-            fig, axes = plt.subplots(1, 5, figsize=(25, 5))
+            fig, axes = plt.subplots(1, 4, figsize=(20, 5))
             
             axes[0].imshow(item['rgb'])
             axes[0].set_title("RGB")
@@ -192,11 +179,6 @@ def main():
             axes[3].set_title("Absolute Error (m)")
             axes[3].axis('off')
             plt.colorbar(im3, ax=axes[3], fraction=0.046, pad=0.04)
-            
-            im4 = axes[4].imshow(item['unc'], cmap='magma', vmin=0, vmax=global_vmax_unc)
-            axes[4].set_title("Uncertainty (TTA)")
-            axes[4].axis('off')
-            plt.colorbar(im4, ax=axes[4], fraction=0.046, pad=0.04)
             
             plt.tight_layout()
             

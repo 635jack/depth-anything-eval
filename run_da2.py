@@ -38,25 +38,11 @@ def main():
 
         try:
             image = Image.open(path).convert("RGB")
-            # Original inference
-            res1 = pipe(image)["predicted_depth"].squeeze().cpu().numpy()
-            
-            # TTA: Flipped inference
-            image_flipped = image.transpose(Image.FLIP_LEFT_RIGHT)
-            res2_flipped = pipe(image_flipped)["predicted_depth"].squeeze().cpu().numpy()
-            res2 = np.flip(res2_flipped, axis=1) # flip back horizontally
-            
-            # Final prediction is the mean of both
-            depth_np = (res1 + res2) / 2.0
-            
-            # Uncertainty map (absolute difference between passes)
-            uncertainty_np = np.abs(res1 - res2)
+            depth_tensor = pipe(image)["predicted_depth"]
+            depth_np = depth_tensor.squeeze().cpu().numpy()
             
             np.save(out_path, depth_np)
-            unc_path = os.path.join(predictions_dir, f"{name_no_ext}_unc.npy")
-            np.save(unc_path, uncertainty_np)
-            
-            print(f"[{i+1}/{len(img_paths)}] Saved prediction and uncertainty for {basename}")
+            print(f"[{i+1}/{len(img_paths)}] Saved prediction for {basename}")
         except Exception as e:
             print(f"Failed to process {basename}: {e}")
 
