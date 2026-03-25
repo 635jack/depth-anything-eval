@@ -162,17 +162,89 @@ def generate_ellipsoidal_cup(r_base, r_top, height, bulge=0.0, wall=0.003, segme
     return mesh
 
 
+def apply_anisotropic_scale(mesh, sx, sy, sz):
+    """Applique un scale non-uniforme."""
+    matrix = np.eye(4)
+    matrix[0, 0] = sx
+    matrix[1, 1] = sy
+    matrix[2, 2] = sz
+    mesh.apply_transform(matrix)
+    return mesh
+
+
+def apply_wavy_deformation(mesh, amplitude=0.2, frequency=8.0):
+    """Ajoute des ondulations sur les bords (en fonction de l'angle polaire)."""
+    vertices = mesh.vertices.copy()
+    x, y, z = vertices[:, 0], vertices[:, 1], vertices[:, 2]
+    
+    # Calcul de l'angle polaire
+    angles = np.arctan2(y, x)
+    radii = np.sqrt(x**2 + y**2)
+    
+    # Ne déformer que si on n'est pas trop près de l'axe central (pour garder le fond intact)
+    mask = radii > 0.5
+    
+    # Déplacement radial sinusoïdal
+    deformation = amplitude * np.sin(frequency * angles)
+    
+    new_radii = radii + deformation * mask
+    vertices[mask, 0] = new_radii[mask] * np.cos(angles[mask])
+    vertices[mask, 1] = new_radii[mask] * np.sin(angles[mask])
+    
+    mesh.vertices = vertices
+    return mesh
+
+
+def apply_dent(mesh, center_xyz, radius=2.0, depth=0.5):
+    """Crée un enfoncement localisé (type 'poc')."""
+    vertices = mesh.vertices.copy()
+    dists = np.linalg.norm(vertices - center_xyz, axis=1)
+    
+    # Masque pour la zone d'influence (cloche gaussienne inversée)
+    mask = dists < radius
+    influence = (1.0 - (dists[mask] / radius))**2
+    
+    # Direction vers le centre de l'objet (en XY)
+    center_direction = -vertices[mask, :2]
+    center_direction /= (np.linalg.norm(center_direction, axis=1)[:, None] + 1e-6)
+    
+    vertices[mask, :2] += center_direction * influence[:, None] * depth
+    
+    mesh.vertices = vertices
+    return mesh
+
+
+def apply_twist(mesh, total_angle_deg=30.0):
+    """Applique une torsion selon la hauteur Z."""
+    vertices = mesh.vertices.copy()
+    z_min, z_max = vertices[:, 2].min(), vertices[:, 2].max()
+    z_rel = (vertices[:, 2] - z_min) / (z_max - z_min + 1e-6)
+    
+    angles = np.radians(total_angle_deg) * z_rel
+    cos_a = np.cos(angles)
+    sin_a = np.sin(angles)
+    
+    new_x = vertices[:, 0] * cos_a - vertices[:, 1] * sin_a
+    new_y = vertices[:, 0] * sin_a + vertices[:, 1] * cos_a
+    
+    vertices[:, 0] = new_x
+    vertices[:, 1] = new_y
+    
+    mesh.vertices = vertices
+    return mesh
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 OBJECT_GENERATORS = {
-    "cup_cylindre": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.08, 0.00),
-    "cup_tonneau": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.08, +0.015),
-    "cup_pince": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.08, -0.010),
-    "cup_evase": lambda: generate_ellipsoidal_cup(0.03, 0.05, 0.08, +0.010),
-    "cup_inverse": lambda: generate_ellipsoidal_cup(0.05, 0.03, 0.10, -0.005),
-    "cup_bombe": lambda: generate_ellipsoidal_cup(0.04, 0.04, 0.05, +0.020),
+    "cup_elliptical": lambda: apply_anisotropic_scale(generate_ellipsoidal_cup(0.04, 0.04, 0.08, 0.00), 1.0, 0.7, 1.0),
+    "cup_wavy": lambda: apply_wavy_deformation(generate_ellipsoidal_cup(0.04, 0.04, 0.08, 0.010), amplitude=0.3, frequency=8),
+    "cup_dented": lambda: apply_dent(generate_ellipsoidal_cup(0.04, 0.04, 0.08, -0.010), center_xyz=[3.0, 0, 4.0], radius=2.5, depth=0.8),
+    "cup_twisted": lambda: apply_twist(generate_ellipsoidal_cup(0.03, 0.05, 0.08, 0.010), total_angle_deg=45),
+    "cup_squashed": lambda: apply_anisotropic_scale(generate_ellipsoidal_cup(0.04, 0.04, 0.08, 0.015), 1.2, 0.6, 0.8),
+    "cup_irregular": lambda: apply_wavy_deformation(apply_dent(generate_ellipsoidal_cup(0.04, 0.04, 0.05, 0.020), [0, 3, 2], 2, 0.5), 0.2, 5),
 }
 
 
