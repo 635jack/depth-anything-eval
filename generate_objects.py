@@ -48,7 +48,7 @@ def _check_thickness(mesh: trimesh.Trimesh, name: str, min_mm: float = MIN_THICK
     return ok
 
 
-def check_overhangs(mesh: trimesh.Trimesh, name: str = "obj", max_angle_deg: float = MAX_OVERHANG_ANGLE_DEG) -> dict:
+def _check_overhangs(mesh: trimesh.Trimesh, name: str, max_angle_deg: float = MAX_OVERHANG_ANGLE_DEG) -> dict:
     """Detects faces with an overhang > max_angle_deg relative to vertical."""
     normals = mesh.face_normals
     # Angle between face normal and "up" vector (Z+)
@@ -61,10 +61,8 @@ def check_overhangs(mesh: trimesh.Trimesh, name: str = "obj", max_angle_deg: flo
     pct = 100 * n_overhang / len(normals) if len(normals) > 0 else 0
     ok = pct < 5  # < 5% overhang faces = OK
     status = f"✅ overhangs {pct:.1f}%" if ok else f"⚠️  overhangs {pct:.1f}%"
-    # Only print if called from main
-    if name != "preview":
-        print(f"  [{name}] {status} ({n_overhang}/{len(normals)} faces)")
-    return {"ok": ok, "pct": pct, "n_faces": n_overhang, "max_angle": 180 - angles_deg.min() if len(angles_deg) > 0 else 0}
+    print(f"  [{name}] {status} ({n_overhang}/{len(normals)} faces)")
+    return {"ok": ok, "pct": pct, "n_faces": n_overhang}
 
 
 def _check_flat_base(mesh: trimesh.Trimesh, name: str) -> bool:
@@ -92,11 +90,11 @@ def _export(mesh: trimesh.Trimesh, name: str, suffix: str, out_dir: str = OUTPUT
     return stl_path, obj_path, glb_path
 
 
-def validate_mesh(mesh: trimesh.Trimesh, name: str) -> dict:
+def _validate(mesh: trimesh.Trimesh, name: str) -> dict:
     """Validates the physical properties of the mesh."""
     manifold = _check_manifold(mesh, name)
     thickness = _check_thickness(mesh, name)
-    overhangs = check_overhangs(mesh, name)
+    overhangs = _check_overhangs(mesh, name)
     flat_base = _check_flat_base(mesh, name)
     
     return {
@@ -326,7 +324,7 @@ def generate_all() -> list[dict]:
                 mesh = apply_flare(mesh, defom.get('factor', 1.0))
 
         # Validate Clean
-        val = validate_mesh(mesh, f"{name}_clean")
+        val = _validate(mesh, f"{name}_clean")
         stl_clean, _, _ = _export(mesh, name, "clean")
         
         # 2. Printed Version (with striae)
