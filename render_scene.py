@@ -95,6 +95,40 @@ key_light = add_light("Key", (-0.5, -0.5, 0.5), 50.0)
 fill_light = add_light("Fill", (0.5, -0.3, 0.1), 20.0)
 back_light = add_light("Back", (0, 0.5, 0.5), 30.0)
 
+# Materials
+def setup_matte_material(obj, color=(0.1, 0.4, 0.8, 1.0)):
+    mat = bpy.data.materials.new(name="Matte")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    bsdf = nodes.get("Principled BSDF")
+    bsdf.inputs['Base Color'].default_value = color
+    bsdf.inputs['Roughness'].default_value = 0.85
+    bsdf.inputs['Specular IOR Level'].default_value = 0.1
+    obj.data.materials.append(mat)
+
+def setup_silk_material(obj, color=(0.8, 0.2, 0.1, 1.0)):
+    mat = bpy.data.materials.new(name="Silk")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    bsdf = nodes.get("Principled BSDF")
+    bsdf.inputs['Base Color'].default_value = color
+    bsdf.inputs['Roughness'].default_value = 0.2
+    bsdf.inputs['Metallic'].default_value = 0.3
+    bsdf.inputs['Coat Weight'].default_value = 0.5
+    bsdf.inputs['Anisotropic'].default_value = 0.7
+    obj.data.materials.append(mat)
+
+def setup_petg_material(obj, color=(0.1, 0.8, 0.4, 1.0)):
+    mat = bpy.data.materials.new(name="PETG")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    bsdf = nodes.get("Principled BSDF")
+    bsdf.inputs['Base Color'].default_value = color
+    bsdf.inputs['Transmission Weight'].default_value = 0.95
+    bsdf.inputs['Roughness'].default_value = 0.2
+    bsdf.inputs['IOR'].default_value = 1.54
+    obj.data.materials.append(mat)
+
 # Angles: 0° front, 45° side, 30° elevated top
 angles = [
     {"name": "front", "pos": (0, -0.5, 0)},
@@ -104,10 +138,10 @@ angles = [
 
 # Process models
 for f in sorted(os.listdir(args.obj_dir)):
-    if not f.endswith('.obj'):
+    if not f.endswith('_printed.obj'):
         continue
     
-    obj_name = f[:-4]
+    obj_name = f[:-len('_printed.obj')]
     obj_path = os.path.join(args.obj_dir, f)
     
     # Import
@@ -123,6 +157,17 @@ for f in sorted(os.listdir(args.obj_dir)):
     # Scale from cm to meters (1 cm = 0.01 m)
     main_obj.scale = (0.01, 0.01, 0.01)
     bpy.context.view_layer.update()
+    
+    # Material assignment
+    if "matte" in obj_name.lower():
+        setup_matte_material(main_obj, (0.05, 0.2, 0.6, 1.0)) # Dark Blue
+    elif "silk" in obj_name.lower():
+        setup_silk_material(main_obj, (0.7, 0.1, 0.1, 1.0)) # Silk Red
+    elif "translucent" in obj_name.lower():
+        setup_petg_material(main_obj, (0.1, 0.8, 0.4, 0.5)) # Translucent Green
+    else:
+        # Default fallback
+        setup_matte_material(main_obj, (0.4, 0.4, 0.4, 1.0))
     
     # Ensure camera tracks the object center
     if not cam_obj.constraints:

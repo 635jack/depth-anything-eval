@@ -65,7 +65,7 @@ def main():
         html_content.append(metrics_html)
     
     html_content.append("<h2>Visualizations</h2>")
-    html_content.append("<table><tr><th style='width: 350px;'>Modèle 3D Interactif</th><th>Évaluation Pipeline (RGB | GT | Pred | Erreur)</th></tr>")
+    html_content.append("<table><tr><th style='width: 350px;'>3D Model & Downloads</th><th>Pipeline Evaluation (RGB | GT | Pred | Error)</th></tr>")
 
     # Pass 1: Compute global scales and cache data
     global_vmax_depth = 0.0
@@ -139,20 +139,28 @@ def main():
     for obj_name, items in objects_dict.items():
         rowspan = len(items) * 2
         
-        # Load GLB as base64 to bypass local file CORS policy in browsers
-        glb_path = os.path.join("output", "meshes", f"{obj_name}.glb")
+        # Load GLB as base64 (Printed version)
+        glb_path = os.path.join("output", "meshes", f"{obj_name}_printed.glb")
         if os.path.exists(glb_path):
             with open(glb_path, "rb") as f:
                 b64_data = base64.b64encode(f.read()).decode('utf-8')
             glb_src = f"data:model/gltf-binary;base64,{b64_data}"
         else:
-            glb_src = f"../meshes/{obj_name}.glb"
+            glb_src = ""
         
         html_content.append("<tr>")
-        html_content.append(f'<td rowspan="{rowspan}" style="text-align:center; vertical-align:middle; border-right:2px solid #ddd;">')
+        html_content.append(f'<td rowspan="{rowspan}" style="text-align:center; vertical-align:top; border-right:2px solid #ddd;">')
         html_content.append(f"<h3>{obj_name}</h3>")
-        html_content.append(f'<model-viewer src="{glb_src}" auto-rotate camera-controls style="width: 100%; height: 350px; background-color: #f9f9f9; border-radius: 8px;"></model-viewer>')
-        html_content.append('<p style="font-size: 0.85em; color: #666; margin-top: 8px;">(Faites glisser pour tourner)</p>')
+        if glb_src:
+            html_content.append(f'<model-viewer src="{glb_src}" auto-rotate camera-controls style="width: 100%; height: 300px; background-color: #f9f9f9; border-radius: 8px;"></model-viewer>')
+        
+        # Download links
+        html_content.append('<div style="text-align:left; margin-top:15px; font-size:0.9em; padding:10px; background:#f0f8ff; border-radius:5px;">')
+        html_content.append('<strong>📦 Downloads:</strong><br>')
+        html_content.append(f'• <a href="../meshes/{obj_name}_clean.stl" download>Clean Mesh (STL)</a><br>')
+        html_content.append(f'• <a href="../meshes/{obj_name}_printed.obj" download>Print Simulation (OBJ)</a><br>')
+        html_content.append(f'• <a href="../renders/{obj_name}_front.exr" download>Ground Truth (EXR)</a>')
+        html_content.append('</div>')
         html_content.append('</td>')
 
         for i, item in enumerate(items):
