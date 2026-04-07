@@ -1,0 +1,6 @@
+libopenexr-dev
+libgl1-mesa-glx
+libglib2.0-0
+zlib1g-dev
+libxrender1
+libxext6

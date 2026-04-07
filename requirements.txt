@@ -12,3 +12,5 @@ OpenEXR
 Imath
 pandas
 opencv-python
+streamlit
+PyYAML

@@ -1,60 +1,50 @@
-# Depth Anything V2 — Evaluation Pipeline
+# Cup Generator & Depth-Anything-V2 Evaluator
 
-Pipeline d'évaluation de **Depth Anything V2** sur des objets 3D paramétriques rendus dans Blender.
+An interactive pipeline to generate, simulate, and evaluate Depth-Anything-V2 performance on parametric 3D printed objects.
 
-## Workflow
+## Key Features
 
-1. **Génération** — 6 objets 3D paramétriques (STL + OBJ) via `trimesh`
-2. **Rendu** — RGB (PNG) + depth ground-truth (EXR 32-bit, mètres réels) via Blender CLI
-3. **Inférence** — Depth Anything V2 Large (MPS / CPU fallback)
-4. **Métriques** — AbsRel, SqRel, RMSE, RMSElog, δ1.25 / δ1.25² / δ1.25³
-5. **Rapport** — Figures comparatives + rapport HTML + CSV
+*   **Interactive Dashboard**: A Streamlit-based web interface to design custom cup variants in real-time.
+*   **Parametric 3D Generation**: Automated creation of manifold cups with adjustable base radius, top radius, height, and wall thickness.
+*   **Advanced Deformations**: Apply Anamorphic distortions like Shear (Z-axis tilt) and Flare (non-linear tapered growth/pinching) for complex geometric testing.
+*   **3D Print Simulation**: 
+    *   **Layer Stratification**: Simulates 0.2mm FDM layer lines via radial sine-wave displacement for realistic depth artifacts.
+    *   **Dual-Mesh Export**: Generates both a Clean STL (for actual printing) and a Printed OBJ/GLB (for simulation).
+*   **Automated Pipeline**: One-click execution of high-fidelity Blender renderings (Cycles), AI depth inference, and metric computation.
 
-## Prérequis
+## Evaluation Workflow
 
-- Python ≥ 3.10
-- Blender ≥ 3.6 (accessible en CLI)
-- GPU MPS (Apple Silicon) ou CPU
+1.  **Draft**: Set cup parameters and deformations in the dashboard.
+2.  **Generate**: The system builds the 3D meshes and verifies manifoldness/printability.
+3.  **Render**: Blender CLI generates RGB images and 32-bit EXR ground-truth depth maps (in real meters).
+4.  **Inference**: Depth-Anything-V2 (Large) predicts relative depth from the RGB render.
+5.  **Evaluate**: Predictions are aligned to Ground Truth to compute standard metrics: AbsRel, RMSE, δ1.25, etc.
 
-## Installation
+## 🛠️ Setup
 
+- **Python ≥ 3.10**
+- **Blender ≥ 3.6** (must be in system PATH or configured in `main.py`)
+- **Virtual Env**:
+  ```bash
+  python -m venv venv
+  source venv/bin/activate
+  pip install -r requirements.txt
+  ```
+
+## 🏃 Usage
+
+Launch the interactive dashboard to manage your variants and run the pipeline:
 ```bash
-pip install -r requirements.txt
+streamlit run app.py
 ```
 
-## Utilisation
+## 📂 Project Structure
 
-```bash
-# Pipeline complet
-python main.py
+- `app.py`: Interactive Streamlit dashboard.
+- `generate_objects.py`: Parametric mesh engine with deformation logic.
+- `render_scene.py`: Blender Python script for material simulation and EXR export.
+- `main.py`: Pipeline orchestrator.
+- `output/`: Generated meshes (STL/OBJ), renders, and evaluation reports.
 
-# Modules individuels
-python generate_objects.py
-blender --background --python render_scene.py -- --obj_dir output/meshes --output_dir output/renders
-python run_da2.py
-python metrics.py
-python visualize.py
-```
-
-## Objets générés
-
-| Objet | Description | Dimensions |
-|-------|-------------|------------|
-| `box_simple` | Cube simple | 8×8×8 cm |
-| `stepped_box` | Boîte à 2 niveaux | 10×10×6 cm |
-| `cylinder_flat` | Cylindre plat | Ø8 cm, H=4 cm |
-| `l_shape` | Forme en L extrudée | 12×8×4 cm |
-| `t_shape` | Forme en T extrudée | 10×8×4 cm |
-| `pyramid_stepped` | Pyramide étagée 3 niveaux | variable |
-
-## Structure
-
-```
-├── generate_objects.py   # Génération des meshes
-├── render_scene.py       # Script Blender CLI
-├── run_da2.py            # Inférence DA-V2
-├── metrics.py            # Calcul des métriques
-├── visualize.py          # Visualisation + rapport HTML
-├── main.py               # Orchestrateur
-└── output/               # Données générées (gitignored)
-```
+---
+Created as part of ISIR-Stage research.

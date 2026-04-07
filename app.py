@@ -25,14 +25,14 @@ def save_config(config):
         yaml.dump(config, f, sort_keys=False)
 
 def run_pipeline():
-    with st.spinner("🚀 Running full pipeline (Blender Rendering + DA-V2 Inference)..."):
+    with st.spinner("Running full pipeline (Blender Rendering + DA-V2 Inference)..."):
         # We can just call main.py as a subprocess
         result = subprocess.run(["./venv/bin/python", "main.py"], capture_output=True, text=True)
         if result.returncode == 0:
-            st.success("✅ Pipeline completed successfully!")
+            st.success("Pipeline completed successfully!")
             # st.code(result.stdout)
         else:
-            st.error("❌ Pipeline execution error.")
+            st.error("Pipeline execution error.")
             st.code(result.stderr)
 def generate_variant_name(r_base, r_top, height, bulge, material, deformations):
     """Generates a descriptive name for the cup variant."""
@@ -53,7 +53,7 @@ def generate_variant_name(r_base, r_top, height, bulge, material, deformations):
     return "_".join(name_parts)
 
 # --- Sidebar: Addition Form ---
-st.sidebar.header("➕ Create New Cup")
+st.sidebar.header("Create New Cup")
 with st.sidebar.form("new_cup_form", clear_on_submit=True):
     r_base = st.slider("Base Radius (cm)", 2.0, 8.0, 4.0) / 100.0
     r_top = st.slider("Top Radius (cm)", 2.0, 8.0, 5.0) / 100.0
@@ -98,7 +98,7 @@ with st.sidebar.form("new_cup_form", clear_on_submit=True):
         st.sidebar.success(f"Variant '{name}' added!")
 
 # --- Main Layout ---
-st.title("🥤 Cup Generator & Evaluation Dashboard")
+st.title("Cup Generator & Evaluation Dashboard")
 
 config = load_config()
 # st.write("### Vos Variantes Actuelles")
@@ -106,7 +106,7 @@ config = load_config()
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.subheader("📋 Variant List")
+    st.subheader("Variant List")
     if config["variants"]:
         df = pd.DataFrame(config["variants"])
         st.dataframe(df.drop(columns=['deformations'], errors='ignore'), height=300)
@@ -120,14 +120,13 @@ with col1:
         st.info("No variants configured. Use the sidebar to create one.")
 
 with col2:
-    st.subheader("⚡ Pipeline Control")
+    st.subheader("Pipeline Control")
     if st.button("Run Full Evaluation", type="primary"):
         run_pipeline()
         st.rerun()
 
-# --- Results ---
 st.markdown("---")
-st.subheader("📊 Latest Results")
+st.subheader("Latest Results")
 
 if os.path.exists(REPORT_PATH):
     # Instead of embedding raw report, let's show download links for current variants
@@ -138,7 +137,7 @@ if os.path.exists(REPORT_PATH):
         for idx, var in enumerate(config["variants"]):
             vn = var['name']
             # Make sure vn is unique for the expander if there are duplicates in config
-            expander_title = f"📦 Variant: {vn} ({var['material']}) [#{idx}]"
+            expander_title = f"Variant: {vn} ({var['material']}) [#{idx}]"
             with st.expander(expander_title, expanded=True):
                 c_dl, c_3d, c_viz = st.columns([1, 1, 2])
                 
@@ -150,13 +149,13 @@ if os.path.exists(REPORT_PATH):
                     
                     if os.path.exists(stl_clean):
                         with open(stl_clean, "rb") as f:
-                            st.download_button(f"📥 Clean STL", f, file_name=f"{vn}.stl", key=f"dl_stl_{vn}_{idx}")
+                            st.download_button(f"Download Clean STL", f, file_name=f"{vn}.stl", key=f"dl_stl_{vn}_{idx}")
                     if os.path.exists(obj_print):
                         with open(obj_print, "rb") as f:
-                            st.download_button(f"📥 Printed OBJ", f, file_name=f"{vn}_printed.obj", key=f"dl_obj_{vn}_{idx}")
+                            st.download_button(f"Download Printed OBJ", f, file_name=f"{vn}_printed.obj", key=f"dl_obj_{vn}_{idx}")
                     if os.path.exists(gt_exr):
                         with open(gt_exr, "rb") as f:
-                            st.download_button(f"📥 EXR Depth GT", f, file_name=f"{vn}.exr", key=f"dl_exr_{vn}_{idx}")
+                            st.download_button(f"Download EXR Depth GT", f, file_name=f"{vn}.exr", key=f"dl_exr_{vn}_{idx}")
                 
                 with c_3d:
                     st.write("**3D Preview:**")
