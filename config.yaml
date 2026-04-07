@@ -151,3 +151,16 @@ variants:
     shear_y: 0.0
   - type: flare
     factor: 2.0
+- name: cup_R3.5_T6.0_H8.0_silk_shear_flare
+  r_base: 0.035
+  r_top: 0.06
+  height: 0.08
+  bulge: 0.0
+  material: silk
+  layer_height: 0.02
+  deformations:
+  - type: shear
+    shear_x: 0.2
+    shear_y: 0.0
+  - type: flare
+    factor: 1.3

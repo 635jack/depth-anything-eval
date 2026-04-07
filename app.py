@@ -64,12 +64,8 @@ with st.sidebar.form("new_cup_form", clear_on_submit=True):
     
     st.subheader("Deformations")
     add_dent = st.checkbox("Add localized dent")
-    add_shear = st.checkbox("Add Shear (Tilt)")
-    if add_shear:
-        shear_x = st.slider("Shear X", -0.5, 0.5, 0.2)
-    add_flare = st.checkbox("Add Flare (Anamorphosis)")
-    if add_flare:
-        flare_factor = st.slider("Flare Factor", 0.5, 2.0, 1.3)
+    shear_x = st.slider("Shear X (Tilt)", -0.5, 0.5, 0.0)
+    flare_factor = st.slider("Flare Factor (Anamorphosis)", 0.5, 2.0, 1.0)
     
     submitted = st.form_submit_button("Add to List")
     if submitted:
@@ -77,9 +73,9 @@ with st.sidebar.form("new_cup_form", clear_on_submit=True):
         deform = []
         if add_dent:
             deform.append({"type": "dent", "center_xyz": [3.0, 0, height*100/2], "radius": 2.5, "depth": 0.8})
-        if add_shear:
+        if abs(shear_x) > 0.001:
             deform.append({"type": "shear", "shear_x": shear_x, "shear_y": 0.0})
-        if add_flare:
+        if abs(flare_factor - 1.0) > 0.001:
             deform.append({"type": "flare", "factor": flare_factor})
         
         # Auto-generate name
