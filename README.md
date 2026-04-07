@@ -2,6 +2,10 @@
 
 An interactive pipeline to generate, simulate, and evaluate Depth-Anything-V2 performance on parametric 3D printed objects.
 
+<video src="demo.mp4" autoplay loop muted playsinline width="100%"></video>
+
+[https://github.com/635jack/cup-generator-depth-eval](https://github.com/635jack/cup-generator-depth-eval)
+
 ## Key Features
 
 *   **Interactive Dashboard**: A Streamlit-based web interface to design custom cup variants in real-time.
