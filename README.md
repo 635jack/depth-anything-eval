@@ -1,8 +1,10 @@
 # Cup Generator & Depth-Anything-V2 Evaluator
-<video src="demo.mp4" autoplay loop muted playsinline></video>
+
 An interactive pipeline to generate, simulate, and evaluate Depth-Anything-V2 performance on parametric 3D printed objects.
 
-<video src="demo.mp4" autoplay loop muted playsinline width="100%"></video>
+[![Watch the Demo](http://img.youtube.com/vi/VyOzVMxKOuQ/0.jpg)](https://www.youtube.com/watch?v=VyOzVMxKOuQ)
+
+[View the Demo on YouTube](https://www.youtube.com/watch?v=VyOzVMxKOuQ)
 
 [https://github.com/635jack/cup-generator-depth-eval](https://github.com/635jack/cup-generator-depth-eval)
 
